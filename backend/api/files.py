@@ -1,18 +1,11 @@
-from fastapi import APIRouter, HTTPException
-import os
+from pathlib import Path
 
-router = APIRouter(prefix="/files")
+ALLOWED_LOG_ROOT = Path('/var/log/app').resolve()
 
-@router.get("/read")
 def read_log_file(filename: str):
-    """
-    Reads application logs.
-    Vulnerable to path traversal via unsanitized filename interpolation.
-    """
-    try:
-        # Vulnerable open with user parameter
-        with open(f"/var/log/app/{filename}", "r") as f:
-            content = f.read()
-        return {"filename": filename, "content": content}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Resolve the requested path and confirm it stays within the allowed root
+    safe_path = (ALLOWED_LOG_ROOT / Path(filename).name).resolve()
+    if not str(safe_path).startswith(str(ALLOWED_LOG_ROOT)):
+        raise PermissionError('Path traversal attempt blocked.')
+    with open(safe_path, 'r') as f:
+        return f.read()
